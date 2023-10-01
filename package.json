@@ -1,0 +1,12 @@
+{
+  "name": "tap-analisador",
+  "version": "1.0.0",
+  "description": "Escrever um programa que conte quantas vezes uma determinada palavra apareceu em uma temporada da série.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
