@@ -1,72 +1,88 @@
 const fs = require('fs');
 const path = require('path');
+
 const directoryPath = path.join(__dirname, '../data/vikings-first-season');
 const resultsPath = path.join(__dirname, '../data/resultados');
 
-if (!fs.existsSync(resultsPath)) {
-  fs.mkdirSync(resultsPath);
-}
+const ensureDirectoryExists = (directoryPath) => {
+  try {
+    if (!fs.existsSync(directoryPath)) {
+      fs.mkdirSync(directoryPath);
+    }
+  } catch (err) {
+    console.error(`Erro ao criar diretório: ${err.message}`);
+  }
+};
 
-const episodes = fs.readdirSync(directoryPath).filter(file => file.endsWith('.srt'));
-
-const seasonWordCount = {};
-
-const isWord = word => {
+const isWord = (word) => {
   return /^[a-zA-Z']+$/i.test(word);
 };
 
-const processFile = filePath => {
-  const content = fs.readFileSync(filePath, 'utf8');
-  const cleanedContent = content.replace(/<*?>/g, '').toLowerCase();
-  const words = cleanedContent.split(/\s+/);
+const processFile = (filePath) => {
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const linhas = content.split('\n');
 
-  const episodeWordCount = {};
+    return linhas.reduce((episodeWordCount, linha) => {
+      const linhaLimpa = linha
+        .replace(/<.*?>/g, '')
+        .replace(/<\s*\/?\s*i\s*>/g, '')
+        .replace(/[^a-zA-Z'\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const palavras = linhaLimpa.split(/\s+/);
 
-  words.forEach(word => {
-    word = word.replace(/[?.,!@♪\-:0-9]+/g, '');
-    word = word.toLowerCase();
+      palavras.forEach((word) => {
+        const lowercaseWord = word.toLowerCase();
 
-    if (isWord(word)) {
-      if (!episodeWordCount[word]) {
-        episodeWordCount[word] = 1;
-      } else {
-        episodeWordCount[word]++;
-      }
+        if (isWord(lowercaseWord)) {
+          episodeWordCount[lowercaseWord] = (episodeWordCount[lowercaseWord] || 0) + 1;
+        }
+      });
 
-      if (!seasonWordCount[word]) {
-        seasonWordCount[word] = 1;
-      } else {
-        seasonWordCount[word]++;
-      }
-    }
-  });
-
-  return episodeWordCount;
+      return episodeWordCount;
+    }, {});
+  } catch (err) {
+    console.error(`Erro ao processar arquivo ${filePath}: ${err.message}`);
+    return {};
+  }
 };
 
-episodes.forEach(episode => {
+const saveResults = (data, filePath) => {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+  } catch (err) {
+    console.error(`Erro ao salvar resultados em ${filePath}: ${err.message}`);
+  }
+};
+
+const episodes = fs.readdirSync(directoryPath).filter((file) => file.endsWith('.srt'));
+const seasonWordCount = {};
+
+ensureDirectoryExists(resultsPath);
+
+episodes.forEach((episode) => {
   const episodePath = path.join(directoryPath, episode);
   const episodeWordCount = processFile(episodePath);
 
-  const sortedWords = Object.keys(episodeWordCount).map(word => ({
-    palavra: word,
-    frequencia: episodeWordCount[word],
-  }));
-  sortedWords.sort((a, b) => b.frequencia - a.frequencia);
+  const sortedWords = Object.entries(episodeWordCount)
+    .map(([word, frequencia]) => ({ palavra: word, frequencia }))
+    .sort((a, b) => b.frequencia - a.frequencia);
 
   const episodeName = episode.replace('.srt', '');
   const episodeResultPath = path.join(resultsPath, `episodio-${episodeName}.json`);
-  fs.writeFileSync(episodeResultPath, JSON.stringify(sortedWords, null, 2));
-  console.log(`Resultados do episódio ${episodeName} salvos em ${episodeResultPath}`);
+  saveResults(sortedWords, episodeResultPath);
+
+  Object.entries(episodeWordCount).forEach(([word, frequencia]) => {
+    seasonWordCount[word] = (seasonWordCount[word] || 0) + frequencia;
+  });
 });
 
-const sortedSeasonWords = Object.keys(seasonWordCount).map(word => ({
-  palavra: word,
-  frequencia: seasonWordCount[word],
-}));
-sortedSeasonWords.sort((a, b) => b.frequencia - a.frequencia);
+const sortedSeasonWords = Object.entries(seasonWordCount)
+  .map(([word, frequencia]) => ({ palavra: word, frequencia }))
+  .sort((a, b) => b.frequencia - a.frequencia);
 
 const seasonName = path.basename(directoryPath);
 const seasonResultPath = path.join(resultsPath, `temporada-${seasonName}.json`);
-fs.writeFileSync(seasonResultPath, JSON.stringify(sortedSeasonWords, null, 2));
-console.log(`Resultados da temporada salvos em ${seasonResultPath}`);
+saveResults(sortedSeasonWords, seasonResultPath);
+console.log("Contagem realizada com sucesso, você pode conferir o resultado em: "+ resultsPath)
