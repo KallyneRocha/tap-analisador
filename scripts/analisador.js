@@ -1,46 +1,49 @@
 const fs = require('fs');
 const path = require('path');
 
-const directoryPath = path.join(__dirname, '../data/vikings-first-season');
-const resultsPath = path.join(__dirname, '../data/resultados');
+const caminhoTemporada = path.join(__dirname, '../data/vikings-first-season');
+const caminhoResultados = path.join(__dirname, '../data/resultados');
 
-const ensureDirectoryExists = (directoryPath) => {
+const criaDiretorio = (caminho) => {
   try {
-    if (!fs.existsSync(directoryPath)) {
-      fs.mkdirSync(directoryPath);
+    if (!fs.existsSync(caminho)) {
+      fs.mkdirSync(caminho);
     }
   } catch (err) {
     console.error(`Erro ao criar diretório: ${err.message}`);
   }
 };
 
-const isWord = (word) => {
-  return /^[a-zA-Z']+$/i.test(word);
-};
+/*const verificaPalavra = (palavra) => {
+  return /^[a-zA-Z']+$/i.test(palavra);
+};*/
 
-const processFile = (filePath) => {
+const limpaLinha = (linha) => {
+  return linha
+  .replace(/<.*?>/g, '')
+  .replace(/[^a-zA-Z'\s]/g, '')
+  .replace(/\s+/g, ' ')
+  .trim();
+}
+
+const processaEpisodio = (caminho) => {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
-    const linhas = content.split('\n');
+    const conteudo = fs.readFileSync(caminho, 'utf8');
+    const linhas = conteudo.split('\n');
 
-    return linhas.reduce((episodeWordCount, linha) => {
-      const linhaLimpa = linha
-        .replace(/<.*?>/g, '')
-        .replace(/<\s*\/?\s*i\s*>/g, '')
-        .replace(/[^a-zA-Z'\s]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+    return linhas.reduce((palavrasEpisodio, linha) => {
+      const linhaLimpa = limpaLinha(linha);
       const palavras = linhaLimpa.split(/\s+/);
 
-      palavras.forEach((word) => {
-        const lowercaseWord = word.toLowerCase();
+      palavras.forEach((palavra) => {
+        const lowercaseWord = palavra.toLowerCase();
 
-        if (isWord(lowercaseWord)) {
-          episodeWordCount[lowercaseWord] = (episodeWordCount[lowercaseWord] || 0) + 1;
-        }
+      //  if (verificaPalavra(lowercaseWord)) {
+          palavrasEpisodio[lowercaseWord] = (palavrasEpisodio[lowercaseWord] || 0) + 1;
+      //  }
       });
 
-      return episodeWordCount;
+      return palavrasEpisodio;
     }, {});
   } catch (err) {
     console.error(`Erro ao processar arquivo ${filePath}: ${err.message}`);
@@ -48,7 +51,7 @@ const processFile = (filePath) => {
   }
 };
 
-const saveResults = (data, filePath) => {
+const salvarResultados = (data, filePath) => {
   try {
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
   } catch (err) {
@@ -56,33 +59,37 @@ const saveResults = (data, filePath) => {
   }
 };
 
-const episodes = fs.readdirSync(directoryPath).filter((file) => file.endsWith('.srt'));
-const seasonWordCount = {};
+const main = () => {
+  const episodios = fs.readdirSync(caminhoTemporada).filter((file) => file.endsWith('.srt'));
+  const quantPalavrasTemp = {};
 
-ensureDirectoryExists(resultsPath);
+criaDiretorio(caminhoResultados);
 
-episodes.forEach((episode) => {
-  const episodePath = path.join(directoryPath, episode);
-  const episodeWordCount = processFile(episodePath);
+episodios.forEach((episodio) => {
+  const caminhoEpisodio = path.join(caminhoTemporada, episodio);
+  const palavrasEpisodio = processaEpisodio(caminhoEpisodio);
 
-  const sortedWords = Object.entries(episodeWordCount)
-    .map(([word, frequencia]) => ({ palavra: word, frequencia }))
+  const palavras = Object.entries(palavrasEpisodio)
+    .map(([palavra, frequencia]) => ({ palavra: palavra, frequencia }))
     .sort((a, b) => b.frequencia - a.frequencia);
 
-  const episodeName = episode.replace('.srt', '');
-  const episodeResultPath = path.join(resultsPath, `episodio-${episodeName}.json`);
-  saveResults(sortedWords, episodeResultPath);
+  const nomeEpisodio = episodio.replace('.srt', '.json');
+  const resultadosEpisodio = path.join(caminhoResultados, nomeEpisodio);
+  salvarResultados(palavras, resultadosEpisodio);
 
-  Object.entries(episodeWordCount).forEach(([word, frequencia]) => {
-    seasonWordCount[word] = (seasonWordCount[word] || 0) + frequencia;
+  Object.entries(palavrasEpisodio).forEach(([palavra, frequencia]) => {
+    quantPalavrasTemp[palavra] = (quantPalavrasTemp[palavra] || 0) + frequencia;
   });
 });
 
-const sortedSeasonWords = Object.entries(seasonWordCount)
-  .map(([word, frequencia]) => ({ palavra: word, frequencia }))
+const palavrasTemp = Object.entries(quantPalavrasTemp)
+  .map(([palavra, frequencia]) => ({ palavra: palavra, frequencia }))
   .sort((a, b) => b.frequencia - a.frequencia);
 
-const seasonName = path.basename(directoryPath);
-const seasonResultPath = path.join(resultsPath, `temporada-${seasonName}.json`);
-saveResults(sortedSeasonWords, seasonResultPath);
-console.log("Contagem realizada com sucesso, você pode conferir o resultado em: "+ resultsPath)
+const nomeTemporada = path.basename(caminhoTemporada);
+const resultadoTemporada = path.join(caminhoResultados, `${nomeTemporada}.json`);
+salvarResultados(palavrasTemp, resultadoTemporada);
+console.log("Contagem realizada com sucesso, você pode conferir o resultado em: "+ caminhoResultados)
+}
+
+main ();
