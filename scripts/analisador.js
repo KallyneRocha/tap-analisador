@@ -14,10 +14,6 @@ const criaDiretorio = (caminho) => {
   }
 };
 
-/*const verificaPalavra = (palavra) => {
-  return /^[a-zA-Z']+$/i.test(palavra);
-};*/
-
 const limpaLinha = (linha) => {
   return linha
   .replace(/<.*?>/g, '')
@@ -36,11 +32,11 @@ const processaEpisodio = (caminho) => {
       const palavras = linhaLimpa.split(/\s+/);
 
       palavras.forEach((palavra) => {
-        const lowercaseWord = palavra.toLowerCase();
+        const palavraMin = palavra.toLowerCase();
 
-      //  if (verificaPalavra(lowercaseWord)) {
-          palavrasEpisodio[lowercaseWord] = (palavrasEpisodio[lowercaseWord] || 0) + 1;
-      //  }
+        if (palavraMin != ""){
+          palavrasEpisodio[palavraMin] = (palavrasEpisodio[palavraMin] || 0) + 1;
+        }
       });
 
       return palavrasEpisodio;
